@@ -38,7 +38,7 @@ rlJournalStart
         TmpDir=$(mktemp -d)
         cp -R queries/* $TmpDir
         cp -R problem_dir $TmpDir # TODO
-        cp pyserve mantisbt.conf $TmpDir
+        cp pyserve mantisbt.conf mantisbt_format.conf $TmpDir
         cp attachment_file $TmpDir
         pushd $TmpDir
     rlPhaseEnd
@@ -57,7 +57,7 @@ rlJournalStart
                 &> server_log &
         sleep 1
         rlRun "reporter-mantisbt -vvv -h bbfe66399cc9cb8ba647414e33c5d1e4ad82b511 \
-                -c mantisbt.conf -d problem_dir &> client_log"
+                -c mantisbt.conf -F mantisbt_format.conf -d problem_dir &> client_log"
         kill %1
 # add server grep (method search, duphash, ...)
 
@@ -80,7 +80,7 @@ rlJournalStart
                 $QUERIES_DIR/attachment \
                 &> server_log &
         sleep 1
-        rlRun "reporter-mantisbt -vvv -c mantisbt.conf -d problem_dir -t1 attachment_file &> client_log"
+        rlRun "reporter-mantisbt -vvv -c mantisbt.conf -F mantisbt_format.conf -d problem_dir -t1 attachment_file &> client_log"
         kill %1
 
         # request
@@ -111,7 +111,7 @@ rlJournalStart
         rlRun "echo \"MantisBT: URL=localhost/mantisbt/view.php?id=1\" > problem_dir/reported_to"
 
         sleep 1
-        rlRun "reporter-mantisbt -vvv -c mantisbt.conf -d problem_dir -t attachment_file &> client_log"
+        rlRun "reporter-mantisbt -vvv -c mantisbt.conf -F mantisbt_format.conf -d problem_dir -t attachment_file &> client_log"
         kill %1
 
         # request
@@ -131,7 +131,7 @@ rlJournalStart
     rlPhaseEnd
 
 # TODO + adding external URL to the issue (depends on the content of 'reported_to')
-# URLs have to be added during adding issue (in the case using 'Addition information' field)
+# URLs have to be added during creating issue (in the case using 'Addition information' field)
 
 # force reporting even if this problem is already reported (parameter f)
 # API some search method (1x or 2x depends on potential duplicates)
@@ -156,12 +156,15 @@ rlJournalStart
                 $QUERIES_DIR/search_two_issues \
                 $QUERIES_DIR/search_no_issues \
                 $QUERIES_DIR/create \
+                $QUERIES_DIR/attachment \
+                $QUERIES_DIR/attachment \
                 &> server_log &
 
         sleep 1
-        rlRun "reporter-mantisbt -vvv -c mantisbt.conf -d problem_dir &> client_log"
+        rlRun "reporter-mantisbt -vvv -c mantisbt.conf -F mantisbt_format.conf -d problem_dir &> client_log"
         kill %1
 
+        #response
         rlAssertGrep "<SOAP-ENV:Body><ns1:mc_loginResponse>" client_create
         rlAssertGrep "<id xsi:type=\"xsd:integer\">2</id>" client_create
         rlAssertGrep "name xsi:type=\"xsd:string\">test</name>" client_create
@@ -172,10 +175,13 @@ rlJournalStart
         rlAssertGrep "Bugzilla has 0 reports with duphash 'bbfe66399cc9cb8ba647414e33c5d1e4ad82b511'" client_create
         rlAssertGrep "<return SOAP-ENC:arrayType=\"ns1:IssueData[0]\" xsi:type=\"SOAP-ENC:Array\">" client_create
 
-
         rlAssertGrep "Creating a new bug" client_create
         rlAssertGrep "<ns3:mc_issue_add>" server_log
         rlAssertGrep "<ns1:mc_issue_addResponse><return xsi:type=\"xsd:integer\">7</return>" client_create
+
+        rlAssertGrep "<ns3:mc_issue_attachment_add>" server_log
+        rlAssertGrep "<issue_id xsi:type=\"ns2:integer\">1</issue_id>" server_log
+        rlAssertGrep "<name xsi:type=\"ns2:string\">attachment_file</name>" server_log
 
         rm -f problem_dir/reported_to
     rlPhaseEnd
@@ -188,10 +194,12 @@ rlJournalStart
                 $QUERIES_DIR/loggin_correct \
                 $QUERIES_DIR/search_no_issues \
                 $QUERIES_DIR/create \
+                $QUERIES_DIR/attachment \
+                $QUERIES_DIR/attachment \
                 &> server_log &
 
         sleep 1
-        rlRun "reporter-mantisbt -vvv -c mantisbt.conf -d problem_dir &> client_log"
+        rlRun "reporter-mantisbt -vvv -c mantisbt.conf -F mantisbt_format.conf -d problem_dir &> client_log"
         kill %1
 
         # request
@@ -212,6 +220,10 @@ rlJournalStart
         rlAssertGrep "<ns3:mc_issue_add>" server_log
         rlAssertGrep "<ns1:mc_issue_addResponse><return xsi:type=\"xsd:integer\">7</return>" client_create
 
+        rlAssertGrep "<ns3:mc_issue_attachment_add>" server_log
+        rlAssertGrep "<issue_id xsi:type=\"ns2:integer\">1</issue_id>" server_log
+        rlAssertGrep "<name xsi:type=\"ns2:string\">attachment_file</name>" server_log
+
         rm -f problem_dir/reported_to
     rlPhaseEnd
 
@@ -227,7 +239,7 @@ rlJournalStart
         rlRun "rm -f problem_dir/comment"
 
         sleep 1
-        rlRun "reporter-mantisbt -vvv -c mantisbt.conf -d problem_dir &> client_log"
+        rlRun "reporter-mantisbt -vvv -c mantisbt.conf -F mantisbt_format.conf -d problem_dir &> client_log"
         kill %1
 
 # TODO request
@@ -259,7 +271,7 @@ rlJournalStart
         rlRun "echo \"i am comment\" > problem_dir/comment"
 
         sleep 1
-        rlRun "reporter-mantisbt -vvv -c mantisbt.conf -d problem_dir &> client_log"
+        rlRun "reporter-mantisbt -vvv -c mantisbt.conf -F mantisbt_format.conf -d problem_dir &> client_log"
         kill %1
 # TODO request (related to search)
         rlAssertGrep "<note xsi:type=i\"ns3:IssueNoteDatai\"><text xsi:type=i\"ns2:stringi\">i am comment</text></note></ns3:mc_issue_note_add>" client_create
