@@ -53,21 +53,24 @@ static volatile sig_atomic_t s_sig_caught;
 static int s_signal_pipe[2];
 static int s_signal_pipe_write = -1;
 static unsigned s_timeout;
-static bool s_exiting;
+static time_t s_cur_time;
 
+static GPollFunc s_poll_func;
 static GIOChannel *channel_socket = NULL;
 static guint channel_id_socket = 0;
 static int child_count = 0;
 
 /* Helpers */
-static guint add_watch_or_die(GIOChannel *channel, unsigned condition, GIOFunc func)
+static guint add_watch_or_die_full(GIOChannel *channel, unsigned condition, GIOFunc func, gpointer user_data)
 {
     errno = 0;
-    guint r = g_io_add_watch(channel, (GIOCondition)condition, func, NULL);
+    guint r = g_io_add_watch(channel, (GIOCondition)condition, func, user_data);
     if (!r)
         perror_msg_and_die("g_io_add_watch failed");
     return r;
 }
+
+#define add_watch_or_die(channel, condition, func) add_watch_or_die_full(channel, condition, func, NULL)
 
 static void increment_child_count(void)
 {
@@ -136,7 +139,7 @@ static gboolean server_socket_cb(GIOChannel *source, GIOCondition condition, gpo
 }
 
 /* Signal pipe handler */
-static gboolean handle_signal_cb(GIOChannel *gio, GIOCondition condition, gpointer ptr_unused)
+static gboolean handle_signal_cb(GIOChannel *gio, GIOCondition condition, gpointer main_loop)
 {
     uint8_t signo;
     gsize len = 0;
@@ -146,7 +149,7 @@ static gboolean handle_signal_cb(GIOChannel *gio, GIOCondition condition, gpoint
         /* we did receive a signal */
         log_debug("Got signal %d through signal pipe", signo);
         if (signo != SIGCHLD)
-            s_exiting = 1;
+            g_main_loop_quit((GMainLoop *)main_loop);
         else
         {
             while (safe_waitpid(-1, NULL, WNOHANG) > 0)
@@ -228,58 +231,28 @@ static void handle_inotify_cb(struct abrt_inotify_watch *watch, struct inotify_e
 #endif
 }
 
-
-/* Run main loop with idle timeout.
- * Basically, almost like glib's g_main_run(loop)
+/*
+ * Runs glib's poll func with timeout and re-loads the configuration
  */
-static void run_main_loop(GMainLoop* loop)
+static gint poll_func(GPollFD *ufds, guint nfds, gint timeout)
 {
-    time_t cur_time = time(NULL);
-    GMainContext *context = g_main_loop_get_context(loop);
-    int fds_size = 0;
-    GPollFD *fds = NULL;
+    if (s_timeout != 0)
+        alarm(s_timeout);
+    gint ret = s_poll_func(ufds, nfds, timeout);
+    int old_errno = errno;
+    if (s_timeout != 0)
+        alarm(0);
 
-    while (!s_exiting)
+    time_t new_time = time(NULL);
+    if (s_cur_time != new_time)
     {
-        gboolean some_ready;
-        gint max_priority;
-        gint timeout;
-        gint nfds;
-
-        some_ready = g_main_context_prepare(context, &max_priority);
-        if (some_ready)
-            g_main_context_dispatch(context);
-
-        while (1)
-        {
-            nfds = g_main_context_query(context, max_priority, &timeout, fds, fds_size);
-            if (nfds <= fds_size)
-                break;
-            fds_size = nfds + 16; /* +16: optimizing realloc frequency */
-            fds = (GPollFD *)xrealloc(fds, fds_size * sizeof(fds[0]));
-        }
-
-        if (s_timeout != 0)
-            alarm(s_timeout);
-        g_poll(fds, nfds, timeout);
-        if (s_timeout != 0)
-            alarm(0);
-
-        time_t new_time = time(NULL);
-        if (cur_time != new_time)
-        {
-            cur_time = new_time;
-            load_abrt_conf();
+        s_cur_time = new_time;
+        load_abrt_conf();
 //TODO: react to changes in g_settings_sWatchCrashdumpArchiveDir
-        }
-
-        some_ready = g_main_context_check(context, max_priority, fds, nfds);
-        if (some_ready)
-            g_main_context_dispatch(context);
     }
 
-    free(fds);
-    g_main_context_unref(context);
+    errno = old_errno;
+    return ret;
 }
 
 /* Initializes the dump socket, usually in /var/run directory
@@ -600,9 +573,9 @@ int main(int argc, char** argv)
     /* Add an event source which waits for INT/TERM signal */
     log_notice("Adding signal pipe watch to glib main loop");
     channel_signal = abrt_gio_channel_unix_new(s_signal_pipe[0]);
-    channel_id_signal_event = add_watch_or_die(channel_signal,
+    channel_id_signal_event = add_watch_or_die_full(channel_signal,
                         G_IO_IN | G_IO_PRI | G_IO_HUP,
-                        handle_signal_cb);
+                        handle_signal_cb, pMainloop);
 
     guint name_id = 0;
 
@@ -634,9 +607,14 @@ int main(int argc, char** argv)
                               NULL, NULL, NULL,
                               NULL, NULL);
 
+    GMainContext *context = g_main_loop_get_context(pMainloop);
+    s_poll_func = g_main_context_get_poll_func(context);
+    g_main_context_set_poll_func(context, poll_func);
+    s_cur_time = time(NULL);
+
     /* Enter the event loop */
     log_debug("Init complete, entering main loop");
-    run_main_loop(pMainloop);
+    g_main_loop_run(pMainloop);
 
  cleanup:
     if (name_id > 0)
