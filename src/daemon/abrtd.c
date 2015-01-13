@@ -43,6 +43,8 @@
 
 #define IN_DUMP_LOCATION_FLAGS (IN_DELETE_SELF | IN_MOVE_SELF)
 
+#define ABRTD_DBUS_NAME ABRT_DBUS_NAME".daemon"
+
 /* Daemon initializes, then sits in glib main loop, waiting for events.
  * Events can be:
  * - inotify: something new appeared under /var/tmp/abrt or /var/spool/abrt-upload
@@ -440,6 +442,28 @@ static void mark_unprocessed_dump_dirs_not_reportable(const char *path)
     closedir(dp);
 }
 
+static void on_bus_acquired(GDBusConnection *connection,
+                 const gchar     *name,
+                 gpointer         user_data)
+{
+    log_debug("Going to own bus '%s'", name);
+}
+
+static void on_name_acquired (GDBusConnection *connection,
+                  const gchar     *name,
+                  gpointer         user_data)
+{
+    log_debug("Acquired the name '%s' on the system bus", name);
+}
+
+static void on_name_lost(GDBusConnection *connection,
+                      const gchar *name,
+                      gpointer user_data)
+{
+    error_msg_and_die(_("The name '%s' has been lost, please check if other "
+                        "service owning the name is not running.\n"), name);
+}
+
 int main(int argc, char** argv)
 {
     /* I18n */
@@ -601,11 +625,13 @@ int main(int argc, char** argv)
     s_signal_pipe_write = s_signal_pipe[1];
 
     /* Own a name on D-Bus */
-    name_id = g_bus_own_name (G_BUS_TYPE_SYSTEM,
-                              "org.freedesktop.problems.daemon",
-                              G_BUS_NAME_OWNER_FLAGS_NONE,
-                              NULL, NULL, NULL,
-                              NULL, NULL);
+    name_id = g_bus_own_name(G_BUS_TYPE_SYSTEM,
+                             ABRTD_DBUS_NAME,
+                             G_BUS_NAME_OWNER_FLAGS_NONE,
+                             on_bus_acquired,
+                             on_name_acquired,
+                             on_name_lost,
+                             NULL, NULL);
 
     GMainContext *context = g_main_loop_get_context(pMainloop);
     s_poll_func = g_main_context_get_poll_func(context);
