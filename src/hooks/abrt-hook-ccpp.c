@@ -690,7 +690,7 @@ int main(int argc, char** argv)
     dd = dd_create(path, fsuid, 0640);
     if (dd)
     {
-        dd_create_basic_files(dd, fsuid);
+        dd_create_basic_files(dd, fsuid, NULL);
 
         char source_filename[sizeof("/proc/%lu/somewhat_long_name") + sizeof(long)*3];
         int source_base_ofs = sprintf(source_filename, "/proc/%lu/smaps", (long)pid);
