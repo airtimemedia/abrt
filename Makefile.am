@@ -33,6 +33,7 @@ RPM_DIRS = --define "_sourcedir `pwd`" \
 	   --define "_rpmdir `pwd`" \
 	   --define "_specdir `pwd`" \
 	   --define "_builddir `pwd`" \
+	   --define "_topdir `pwd`" \
 	   --define "_srcrpmdir `pwd`"
 
 rpm:
