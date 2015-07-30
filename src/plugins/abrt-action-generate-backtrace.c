@@ -111,7 +111,7 @@ static char *get_backtrace(struct dump_dir *dd, const char *debuginfo_dirs)
     /* Limit bt depth. With no limit, gdb sometimes OOMs the machine */
     unsigned bt_depth = 2048;
     const char *thread_apply_all = "thread apply all";
-    const char *full = " full";
+    const char *full = "";
     char *bt = NULL;
     while (1)
     {
