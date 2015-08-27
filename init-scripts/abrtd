@@ -38,6 +38,9 @@ check() {
 start() {
 	check
 
+	# install abrt handler
+	/usr/sbin/abrt-install-ccpp-hook install
+
 	# Check if it is already running
 	if [ ! -f "$LOCK" ]; then
 		echo -n $"Starting abrt daemon: "
