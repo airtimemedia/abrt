@@ -31,7 +31,7 @@ void free_abrt_conf_data()
     g_settings_dump_location = NULL;
 }
 
-static void ParseCommon(map_string_h *settings, const char *conf_filename)
+static void ParseCommon(map_string_t *settings, const char *conf_filename)
 {
     char *value;
 
@@ -78,7 +78,7 @@ int load_abrt_conf()
 {
     free_abrt_conf_data();
 
-    map_string_h *settings = new_map_string();
+    map_string_t *settings = new_map_string();
     if (!load_conf_file(CONF_DIR"/abrt.conf", settings, /*skip key w/o values:*/ false))
         perror_msg("Can't open '%s'", CONF_DIR"/abrt.conf");
 

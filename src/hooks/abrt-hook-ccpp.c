@@ -489,7 +489,7 @@ int main(int argc, char** argv)
     bool setting_MakeCompatCore;
     bool setting_SaveBinaryImage;
     {
-        map_string_h *settings = new_map_string();
+        map_string_t *settings = new_map_string();
         load_conf_file(PLUGINS_CONF_DIR"/CCpp.conf", settings, /*skip key w/o values:*/ false);
         char *value;
         value = g_hash_table_lookup(settings, "MakeCompatCore");

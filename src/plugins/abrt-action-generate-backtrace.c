@@ -182,7 +182,7 @@ int main(int argc, char **argv)
 
     export_abrt_envvars(0);
 
-    map_string_h *settings = new_map_string();
+    map_string_t *settings = new_map_string();
     if (!load_conf_file(PLUGINS_CONF_DIR"/CCpp.conf", settings, /*skip key w/o values:*/ false))
         error_msg("Can't open '%s'", PLUGINS_CONF_DIR"/CCpp.conf");
 

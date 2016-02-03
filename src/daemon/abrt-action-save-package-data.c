@@ -26,7 +26,7 @@ static GList *settings_setBlackListedPkgs = NULL;
 static GList *settings_setBlackListedPaths = NULL;
 static bool   settings_bProcessUnpackaged = false;
 
-static GList *parse_list(const char* list)
+GList *parse_list(const char* list)
 {
     struct strbuf *item = strbuf_new();
     GList *l = NULL;
@@ -56,7 +56,7 @@ static GList *parse_list(const char* list)
     return l;
 }
 
-static void ParseCommon(map_string_h *settings, const char *conf_filename)
+static void ParseCommon(map_string_t *settings, const char *conf_filename)
 {
     char *value;
 
@@ -120,7 +120,7 @@ static void load_gpg_keys(void)
 
 static int load_conf(const char *conf_filename)
 {
-    map_string_h *settings = new_map_string();
+    map_string_t *settings = new_map_string();
     if (!load_conf_file(conf_filename, settings, /*skip key w/o values:*/ false))
         error_msg("Can't open '%s'", conf_filename);
 
